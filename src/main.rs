@@ -4,11 +4,15 @@ use std::time::Duration;
 
 mod dns;
 
-const test_servers: &'static [&'static str] = &[
+const TEST_SERVERS: &'static [&'static str] = &[
     "192.168.6.1:53",
     "8.8.8.8:53",
-    "1.1.1.1:53"
+    "1.1.1.1:53",
+    "9.9.9.9:53",
+    "208.67.222.222:53"
 ];
+
+const TEST_REPITITIONS: u16 = 3;
 
 fn main() {
     println!("Work-in-Progress DNS bench by Sophie 'Sharky🦈' Schumann\n");
@@ -23,15 +27,27 @@ fn main() {
         hostname: "shark.pm".to_ascii_lowercase()
     };
 
-    for server in test_servers {
-        match q.benchmark(&udp, *server) {
-            Some(r) => {
-                println!("{} -> {:?}", *server, r)
-            },
-            None => {
-                error!("No result from benchmark. :(");
+    for server in TEST_SERVERS {
+        let mut nresults = 0;
+        let mut cumresults = 0;
+
+        for _ in 0..TEST_REPITITIONS {
+            match q.benchmark(&udp, *server) {
+                Some(r) => {
+                    nresults+=1;
+                    cumresults += r.as_millis();
+                    info!("{} -> {:?}", *server, r)
+                },
+                None => {
+                    error!("No result from benchmark. :(");
+                }
             }
+            std::thread::sleep(Duration::new(0, 10000000));
         }
+
+        println!("{} -> avg {}ms ({} runs)", *server, cumresults / nresults, TEST_REPITITIONS);
+
+        
     }
    
 }
