@@ -1,4 +1,5 @@
 use std::net::UdpSocket;
+use std::time::Instant;
 
 struct DnsQuestion {
     tx: u16,
@@ -8,20 +9,20 @@ struct DnsQuestion {
 impl DnsQuestion {
     fn tobuf(&self) -> Vec<u8> {
         let mut r: Vec<u8> = Vec::new();
-        let mut bitbuf: u8 = 0;
 
         // build header
 
         // 16 bits transaction/id
         r.extend_from_slice(&self.tx.to_be_bytes());
 
-        // 8 bits |QR|   Opcode  |AA|TC|RD
-        bitbuf = 0b00000101;
-        r.push(bitbuf);
+        //  0  1234  6  7  8
+        // QR OPCODE AA TC RD
 
-        // 8 bits RA|   Z    |   RCODE   
-        bitbuf = 0b00000000;
-        r.push(bitbuf);
+        r.push(0b00000101);
+
+        //  9 10-11-12 13-14-15-16
+        // RA    Z        RCODE
+        r.push(0b00000000);
 
         // QDCOUNT         an unsigned 16 bit integer specifying the number of
         //                 entries in the question section.
@@ -71,18 +72,25 @@ impl DnsQuestion {
 
     pub fn send_to(&self, udp: &UdpSocket, destination: &str) {
         let buf = self.tobuf();
+        let mut resp_buf: [u8; 1500] = [0; 1500];
 
-        print!("Sending bytes: {:x?}", buf);
+        println!("Sending bytes: {:x?}", buf);
         udp.send_to(&buf, destination).unwrap();
+        let start = Instant::now();
+
+        let (num_recv, recv_from) = udp.recv_from(&mut resp_buf).expect("No response?");
+        let time_took = start.elapsed();
+
+        println!("Received response: {} bytes from {}, took {:?}", num_recv, recv_from.to_string(), time_took);
     }
 }
 
 fn main() {
-    println!("Work-in-Progress DNS bench by Sophie 'Sharky 🦈' Schumann");
+    println!("Work-in-Progress DNS bench by Sophie 'Sharky🦈' Schumann\n");
 
     let udp = UdpSocket::bind("0.0.0.0:12345").expect("Could not bind UDP client socket?");
 
-    let mut q = DnsQuestion {
+    let q = DnsQuestion {
         tx: 1337,
         hostname: "shark.pm".to_string()
     };
