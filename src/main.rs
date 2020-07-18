@@ -1,6 +1,15 @@
 use std::net::UdpSocket;
 use std::time::Instant;
 
+/// gets the bit at position `n`. Bits are numbered from 0 (least significant) to 31 (most significant).
+fn get_bit_at(input: u32, n: u8) -> bool {
+    if n < 32 {
+        input & (1 << n) != 0
+    } else {
+        false
+    }
+}
+
 struct DnsQuestion {
     tx: u16,
     hostname: String
@@ -18,7 +27,7 @@ impl DnsQuestion {
         //  0  1234  6  7  8
         // QR OPCODE AA TC RD
 
-        r.push(0b00000101);
+        r.push(0b00000001);
 
         //  9 10-11-12 13-14-15-16
         // RA    Z        RCODE
@@ -51,10 +60,13 @@ impl DnsQuestion {
         //  that this field may be an odd number of octets; no
         //  padding is used.
 
-        // @todo labels longer than 255
-        let len = self.hostname.len() as u8;
-        r.push(len);
-        r.extend_from_slice(self.hostname.as_bytes());
+        let parts = self.hostname.split('.');
+        for part in parts {
+            // @todo split parts larger than 255
+            let len = part.len() as u8;
+            r.push(len);
+            r.extend_from_slice(part.to_ascii_lowercase().as_bytes());
+        }
         r.push(0b0 as u8);
 
         //  QTYPE           a two octet code which specifies the type of the query.
@@ -91,8 +103,8 @@ fn main() {
     let udp = UdpSocket::bind("0.0.0.0:12345").expect("Could not bind UDP client socket?");
 
     let q = DnsQuestion {
-        tx: 1337,
-        hostname: "shark.pm".to_string()
+        tx: 0xBABE,
+        hostname: "shark.pm".to_ascii_lowercase()
     };
-    q.send_to(&udp, "1.1.1.1:53");
+    q.send_to(&udp, "192.168.6.140:53");
 }
